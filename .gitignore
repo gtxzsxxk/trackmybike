@@ -1,0 +1,5 @@
+.vscode/
+data_tester.py
+data.txt
+database.db
+randomPush.py

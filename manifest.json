@@ -1,0 +1,17 @@
+{
+    "lang": "zh-cn",
+    "name": "Intelli Switch",
+    "short_name": "Intelli-Sw",
+    "description": "Intelli-Sw物联网服务端",
+    "start_url": "/",
+    "background_color": "#F8F2F9",
+    "theme_color": "#4E165F",
+    "orientation": "portrait-primary",
+    "display": "standalone",
+    "icons": [
+        {
+            "src": "/favicon512.png",
+            "sizes": "512x512"
+        }
+    ]
+}

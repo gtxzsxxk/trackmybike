@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <title>Intelli-Sw</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="/manifest.json">
+    <link href="https://cdn.staticfile.org/twitter-bootstrap/5.1.1/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.staticfile.org/twitter-bootstrap/5.1.1/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="../assets/font-awesome-4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
+        integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ=="
+        crossorigin="" />
+    <link href="../assets/style.css" rel="stylesheet">
+</head>
+
+<body>
+    <div id="app">
+        <header class="d-flex justify-content-center py-3">
+            <h3 style="color:navy;margin-top:10px;">Device Sharing</h3>
+        </header>
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999999">
+            <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">{{toast_title}}</strong>
+                    <small>{{toast_subtitle}}</small>
+                </div>
+                <div class="toast-body">
+                    <div class="spinner-border spinner-grow-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    {{toast_message}}
+                </div>
+            </div>
+        </div>
+        <div class="container mt-2">
+
+            <div class="row" v-if="route=='view'" style="display:flex;justify-content:center;">
+                <div style="max-width:430px;">
+                    <div class="card-container" style="background-color: #fff;padding: 5px;width: 350px;margin: auto;">
+                        <span v-if="devices[idChosenDevice].online" style="color:green">
+                            <i class="fa fa-check-circle-o" aria-hidden="true"></i>
+                            &nbsp;{{chosenDevice}}
+                            <i class="fa fa-clock-o" aria-hidden="true"></i>
+                            {{deviceDetailUpdateTime.toFixed(1)}} s
+                        </span>
+                        <span v-if="!devices[idChosenDevice].online" style="color:red">
+                            <i class="fa fa-check-circle-o" aria-hidden="true"></i>
+                            &nbsp;{{chosenDevice}}
+                        </span>
+                    </div>
+                    <div class="card-container"
+                        style="background-color: #fff;padding: 5px;width: 350px;margin: auto;margin-top:10px;"
+                        v-if="!devices[idChosenDevice].online">
+                        <span v-if="!devices[idChosenDevice].online" style="color:red">
+                            <i class="fa fa-clock-o" aria-hidden="true"></i>
+                            Last Seen On:&nbsp;
+                            {{new Date(devices[idChosenDevice].lastseen).toLocaleString()}}
+                        </span>
+                    </div>
+                    <div class="card-container" style="max-width:430px;">
+                        <div v-bind:class="['info-card',k.size=='single'?'info-card-small':'info-card-big']"
+                            v-for="k in deviceDetails" v-if="k.type=='display'" v-bind:key="k.name">
+                            <div
+                                style="display:flex;flex-direction:column;justify-content:center;font-size: 2.5em;margin-left:5px;">
+                                <i v-bind:class="['fa',k.icon]" aria-hidden="true"></i>
+                                <small style="font-size: .50em;text-align: center;">{{k.unit}}</small>
+                            </div>
+                            <div style="text-align:center ;">
+                                <span>{{k.name}}</span>
+                                <hr>
+                                <h4>
+                                    {{k.value}}
+                                </h4>
+                            </div>
+                        </div>
+                        <div v-bind:class="['chart-card','info-card-big']" v-if="getChartLength>0">
+                            <div v-for="chart in deviceDetails" v-if="chart.type=='chart'"
+                                v-bind:id="chart.name+'_chart'" style="width: 100%;height:300px;"></div>
+                        </div>
+                        <div v-bind:class="['chart-card','info-card-big']" v-if="getMapLength>0">
+                            <div v-for="map in deviceDetails" v-if="map.type=='map'">
+                                <span>{{map.name}}</span>
+                                <div v-bind:id="map.name+'_map'" style="width: 100%;height:300px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <script src="../assets/js/vue.js"></script>
+    <script src="../assets/js/md5.min.js"></script>
+    <script src="../assets/js/echarts.min.js"></script>
+    <script src="../assets/js/leaflet.js"></script>
+    <script>
+        window.onload = () => {
+            /* TODO: Make Manage Subsystem Available */
+        }
+
+        function loadChart() {
+            let cnt = app.deviceDetails.length;
+            for (let i = 0; i < cnt; i++) {
+                if (app.deviceDetails[i].type == 'chart') {
+                    var myChart = echarts.init(document.getElementById(app.deviceDetails[i].name + '_chart'));
+                    // 绘制图表
+                    myChart.setOption({
+                        title: {
+                            text: app.deviceDetails[i].name.replace("@", "")
+                        },
+                        tooltip: {},
+                        xAxis: {
+                            data: app.deviceDetails[i].value.xaxis,
+                            boundaryGap: true
+                            //data: [1,2,3,4,5]
+                        },
+                        yAxis: {
+                            scale: true
+                        },
+                        series: [
+                            {
+                                name: app.deviceDetails[i].unit,
+                                type: app.deviceDetails[i].value.type,
+                                data: app.deviceDetails[i].value.yaxis,
+                                smooth: true
+                                //type: "line",
+                                //data: [5,4,3,2,1]
+                            }
+                        ],
+                        grid: {
+                            left: '15%',
+                            containLabel: true
+                        }
+                    });
+                }
+            }
+        }
+        function loadMaps() {
+            let cnt = app.deviceDetails.length;
+            for (let i = 0; i < cnt; i++) {
+                if (app.deviceDetails[i].type == 'map') {
+                    let valueObj = app.deviceDetails[i].value;
+                    if (valueObj == null) {
+                        return;
+                    }
+                    //console.log(valueObj);
+                    let len = valueObj.length;
+                    var container = L.DomUtil.get(app.deviceDetails[i].name + '_map');
+                    if (container != null) {
+                        container._leaflet_id = null;
+                    }
+                    /* let dom=document.getElementById(app.deviceDetails[i].name + '_map');
+                    let dom_parent=dom.parentNode;
+                    dom_parent.removeChild(dom);
+                    let div=document.createElement(app.deviceDetails[i].name + '_map');
+                    dom_parent.appendChild(div);*/
+                    let map = L.map(app.deviceDetails[i].name + '_map').setView(valueObj[len - 1], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    // L.tileLayer('https://{s}.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=a5dd6a2f1c934394bce6b0fb077203eb', {
+                        maxZoom: 19,
+                        attribution: '© OpenStreetMap'
+                    }).addTo(map);
+                    var marker = L.marker(valueObj[len - 1]).addTo(map);
+                    var polyline = L.polyline(valueObj, { color: '#4B0082' ,weight:3}).addTo(map);
+                    map.fitBounds(polyline.getBounds());
+                }
+            }
+        }
+
+        var token = "";
+
+        function ajax(method, url, data, callback) {
+            var httpRequest = new XMLHttpRequest();
+            httpRequest.withCredentials = true;
+            httpRequest.open(method, url, true);
+            if (token != "") {
+                httpRequest.setRequestHeader("token", token);
+            }
+            httpRequest.send(data);
+            httpRequest.onreadystatechange = function () {
+                if (httpRequest.readyState == 4 && httpRequest.status == 200) {
+                    var json = httpRequest.responseText;
+                    callback(json);
+                }
+            };
+        }
+
+        function jsonClone(obj) {
+            return JSON.parse(JSON.stringify(obj));
+        }
+
+        let deviceRefreshInt, deviceDetailRefreshInt, downloadInterval = 10, submitInterval = 3;
+
+        function deviceRefresh() {
+            ajax("get", "./devices/"+app.chosenDevice, {}, (e) => {
+                let jsonObj = JSON.parse(e);
+                if (jsonObj == null) {
+                    app.devices = []
+                }
+                else {
+                    app.devices = jsonObj;
+                }
+                app.$forceUpdate();
+            });
+        }
+
+        let deviceDetailTimer = -1;
+
+        function deviceDetailRefresh() {
+            ajax("get", "./device_details/" + app.chosenDevice, {}, (e) => {
+                if (deviceDetailTimer != -1) {
+                    clearInterval(deviceDetailTimer);
+                }
+                app.deviceDetailUpdateTime = 0;
+                deviceDetailTimer = setInterval(() => {
+                    app.deviceDetailUpdateTime += 0.1;
+                }, 100);
+                let jsonObj = JSON.parse(e);
+                if (jsonObj == null) {
+                    app.deviceDetails = []
+                }
+                else {
+                    for (let i = 0; i < jsonObj.length; i++) {
+                        var toconv = jsonObj[i].value.toLowerCase().replace(/\[,\],/g,"");
+                        if (jsonObj[i].value == "" || JSON.parse(toconv) == "") {
+                            jsonObj[i].value = "N/A";
+                        } else {
+                            jsonObj[i].value = JSON.parse(toconv);
+                        }
+                    }
+                    app.deviceDetails = jsonObj;
+                }
+                if (!app.view_apidesc) {
+                    if (app.getChartLength > 0) {
+                        window.setTimeout(() => {
+                            loadChart();
+                            //loadMaps();
+                        }, 200);
+                    }
+                    if (app.getMapLength > 0) {
+                        window.setTimeout(() => {
+                            //loadChart();
+                            if (!app.map_ready) {
+                                app.map_ready = true;
+                                loadMaps();
+                            }
+                        }, 200);
+                    }
+                }
+                app.$forceUpdate();
+            });
+        }
+
+        function toast(title, subtitle, message, timeout) {
+            app.toast_title = title;
+            app.toast_subtitle = subtitle;
+            app.toast_message = message;
+            var toaster = document.getElementById('liveToast');
+            let toast = new bootstrap.Toast(toaster)
+            toast.show();
+            window.setTimeout(() => {
+                toast.hide();
+            }, timeout * 1000);
+        }
+        /* TODO: 在管理设备时，允许用户设置初始值；增加安卓下载数据接口。*/
+        var app = new Vue({
+            el: '#app',
+            data: {
+                route: "login", /* mode:login home view manage*/
+                view_apidesc: false,
+                manage_subroute: "main",/*main edit*/
+                username: "",
+                password: "",
+                permission: 0,
+                rememberUser: false,
+                chosenDevice: '',
+                devices: [{"name":"Loading","online":0}],
+                deviceDetails: [],
+                controller_lock: false,
+                toast_title: "",
+                toast_subtitle: "",
+                toast_message: "",
+                deviceDetailUpdateTime: 0,
+                map_ready: false
+            },
+            methods: {
+                clearPassword: function () {
+                    this.password = "";
+                    window.localStorage.removeItem("username");
+                    window.localStorage.removeItem("password");
+                },
+                login: function (e) {
+                    this.route = "view";/*Change Status*/
+                    this.viewDevice();
+                    deviceRefresh();
+                    if (window.deviceRefreshInt != 0) {
+                        window.clearInterval(window.deviceRefreshInt);
+                        window.deviceRefreshInt = 0;
+                    }
+                    window.deviceRefreshInt = window.setInterval(deviceRefresh, downloadInterval * 1000);
+                },
+                viewDevice: function (d) {
+                    this.route = "view";
+                    this.deviceDetails = [];
+                    this.map_ready = false;
+                    if (window.deviceDetailRefreshInt != 0) {
+                        window.clearInterval(window.deviceDetailRefreshInt);
+                        window.deviceDetailRefreshInt = 0;
+                    }
+                    deviceDetailRefresh();
+                    window.deviceDetailRefreshInt = window.setInterval(deviceDetailRefresh, downloadInterval * 1000);
+                }
+            },
+            mounted: function () {
+                let arr=window.location.href.split('/');
+                this.chosenDevice=decodeURI(arr[arr.length-1]);
+                setTimeout(()=>{this.login();},100);
+            },
+            computed: {
+                getScriptLength: function () {
+                    let cnt = 0;
+                    for (let i = 0; i < this.deviceDetails.length; i++) {
+                        if (this.deviceDetails[i].type == "script") {
+                            cnt++;
+                        }
+                    }
+                    return cnt;
+                },
+                getChartLength: function () {
+                    let cnt = 0;
+                    for (let i = 0; i < this.deviceDetails.length; i++) {
+                        if (this.deviceDetails[i].type == "chart") {
+                            cnt++;
+                        }
+                    }
+                    return cnt;
+                },
+                getMapLength: function () {
+                    let cnt = 0;
+                    for (let i = 0; i < this.deviceDetails.length; i++) {
+                        if (this.deviceDetails[i].type == "map") {
+                            cnt++;
+                        }
+                    }
+                    return cnt;
+                },
+                idChosenDevice: function () {
+                    return 0;
+                }
+            }
+        });
+
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        }
+    </script>
+</body>
+
+</html>
